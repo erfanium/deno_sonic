@@ -17,10 +17,10 @@ export function quoted(text: string): string {
 
 export function format(
   command: string,
-  args: string[],
+  args: (string | undefined)[],
   options?: Record<string, string | undefined>,
 ): string {
-  let result = command + " " + args.join(" ");
+  let result = command + " " + args.join(" ").trim();
   if (!options) return result;
 
   for (const key in options) {
