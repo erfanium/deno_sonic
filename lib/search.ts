@@ -1,5 +1,6 @@
 import { SonicClient } from "./client.ts";
 import { format, quoted } from "./fmt.ts";
+import { limitString } from "./utils.ts";
 
 export interface QueryParams {
   collection: string;
@@ -18,12 +19,16 @@ export interface SuggestParams {
 }
 
 export class Search {
-  client = new SonicClient();
+  client = new SonicClient("search");
 
   async query(params: QueryParams): Promise<string[]> {
     const command = format(
       "QUERY",
-      [params.collection, params.bucket, quoted(params.terms)],
+      [
+        params.collection,
+        params.bucket,
+        limitString(quoted(params.terms), this.client.cmdMaxBytes),
+      ],
       {
         limit: params.limit?.toString(),
         offset: params.offset?.toString(),
@@ -46,7 +51,11 @@ export class Search {
 
     const command = format(
       "SUGGEST",
-      [params.collection, params.bucket, quoted(params.word)],
+      [
+        params.collection,
+        params.bucket,
+        limitString(quoted(params.word), this.client.cmdMaxBytes),
+      ],
       {
         limit: params.limit?.toString(),
       },

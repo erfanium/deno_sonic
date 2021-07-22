@@ -6,7 +6,6 @@ export interface ConnectOptions {
   port: number;
   hostname: string;
   password: string;
-  mode: ChannelMode;
 }
 
 interface Event {
@@ -41,10 +40,15 @@ export function isChannelValid(ch: string): boolean {
 }
 
 export class SonicClient {
-  conn?: Deno.Conn;
+  mode: ChannelMode;
+  conn: Deno.Conn | null = null;
   cmdMaxBytes = 20000;
   debug: (...params: unknown[]) => unknown = () => undefined;
   #eventQueue: Set<Event> = new Set();
+
+  constructor(mode: ChannelMode) {
+    this.mode = mode;
+  }
 
   protected resolveEvent(event: Event, value: string) {
     this.#eventQueue.delete(event);
@@ -68,7 +72,7 @@ export class SonicClient {
     return event;
   }
 
-  async startLoop() {
+  private async startLoop() {
     if (!this.conn) {
       throw new Error("Client is closed");
     }
@@ -84,13 +88,22 @@ export class SonicClient {
         continue;
       }
 
+      if (line.startsWith("ENDED quit")) break;
+
       for (const event of this.#eventQueue) {
         if (line.startsWith(event.startWith)) {
-          this.resolveEvent(event, line);
+          this.resolveEvent(event, line.trim());
           break;
         }
       }
     }
+
+    this.conn.close();
+    this.conn = null;
+
+    this.#eventQueue.forEach((event) => {
+      this.rejectEvent(event, new Error("Client closed"));
+    });
   }
 
   once(startWith: string): Promise<string> {
@@ -111,14 +124,19 @@ export class SonicClient {
     this.conn = await Deno.connect(opts);
     this.startLoop();
     await this.once("CONNECTED");
-    await this.write(`START ${opts.mode} ${opts.password}`);
+    await this.write(`START ${this.mode} ${opts.password}`);
     const startMess = await this.once("STARTED");
     const serverConfigs = parseStartMessage(startMess);
 
     this.cmdMaxBytes = serverConfigs.buffer;
   }
 
-  eventQueueSize() {
-    return this.#eventQueue.size;
+  async close() {
+    await this.write("QUIT");
+  }
+
+  async ping() {
+    await this.write("PING");
+    return this.once("PONG");
   }
 }

@@ -12,3 +12,9 @@ export function chunkString(str: string, maxBytes: number): string[] {
 
   return groups;
 }
+
+export function limitString(str: string, maxBytes: number): string {
+  const maxLength = Math.floor(maxBytes / 8);
+  if (str.length <= maxLength) return str;
+  return str.substring(0, maxLength);
+}

@@ -30,7 +30,7 @@ export interface FlushParams {
 }
 
 export class Ingest {
-  client = new SonicClient();
+  client = new SonicClient("ingest");
 
   async push(params: PushParams) {
     const chunks = chunkString(params.text, this.client.cmdMaxBytes);
